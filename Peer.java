@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 
 /*Como o SimpleChat e um ReceiverAdapter, ele e capaz de alem de enviar mensagens,tambem receber mensagens de forma assincrona */
 public class Peer extends ReceiverAdapter {
@@ -34,7 +33,11 @@ public class Peer extends ReceiverAdapter {
     Integer votou = 0; //utilizado na apuracao de erros pelo coord
     State state = new State();
 
+    //Utilizado para confiracao pos eleicao
+    Map<Integer, Integer> apur = new HashMap<>();
+
     //apenas coordenador possui
+    Integer votosQtd = 0;
     List<Eleitor> eleitores = new ArrayList<>();
     List<Candidato> candidatos = new ArrayList<>();
 
@@ -62,7 +65,7 @@ public class Peer extends ReceiverAdapter {
                         votou = 0;
                     break;
                     case PARAMERROR:
-                        screen += "NEGADO! Seu titulo e/ou nome inserido foram incorretos!";
+                        screen += "NEGADO! Seu titulo e/ou nome inserido foram incorretos, ou voce ja votou!";
                         votou = 0;
                     break;
                     default:
@@ -197,15 +200,61 @@ public class Peer extends ReceiverAdapter {
                 screen = "\nELEICAO TERMINADA!\n" + printVotos();
             break;
             case "SHOWCANDRESP":
-                state.loadCandidatos(m.getParam("votos"));
-                screen += printCandidatos();
+                screen += m.getParam("votos");
+            break;
+            case "APUR":   
+                resposta = new Mensagem("APURRESP");
+                resposta.setParam("voto", "" + votou);
+                try {
+                    channel.send(msg.getSrc(), resposta);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            break;
+            case "APURRESP":
+                addApur(m.getParam("voto"));  
+                resposta = new Mensagem("APURCONF");
+                resposta.setParam("votos", apurToString());
+                try {
+                    channel.send(viewAtual.getCoord(), resposta);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            break;
+            case "ERR":
+                eleicaoIniciada = EleicaoStatus.ERR;
+            break;
+            case "SHOWUSERSRESP":
+                screen += m.getParam("users");
             break;
 
             //COORDENADOR
+            case "SHOWUSERS":
+                resposta = new Mensagem("SHOWUSERSRESP");
+                resposta.setStatus(Status.OK);
+                resposta.setParam("users", mostraUsuarios());
+                try {
+                    channel.send(msg.getSrc(), resposta);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            break;
+            case "APURCONF":
+                apurFromString(m.getParam("votos"));
+                if(!confirmApur()){
+                    resposta = new Mensagem("ERR");
+                    eleicaoIniciada = EleicaoStatus.ERR;
+                    try {
+                        channel.send(null, resposta);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            break;
             case "SHOWCAND":
                 resposta = new Mensagem("SHOWCANDRESP");
                 resposta.setStatus(Status.OK);
-                resposta.setParam("votos", state.getCandidatosString(false));
+                resposta.setParam("votos", printCandidatos());
                 try {
                     channel.send(msg.getSrc(), resposta);
                 } catch (Exception e) {
@@ -215,15 +264,17 @@ public class Peer extends ReceiverAdapter {
             case "VOTO":
                 resposta = new Mensagem("VOTOCONF");
                 resposta.setStatus(Status.OK);
-                if(!eleitorInscrito(Long.parseLong(m.getParam("titulo")), m.getParam("nome")) ||
-                    eleitorVotou(Long.parseLong(m.getParam("titulo")))){
+                if(!eleitorInscrito(Long.parseLong(m.getParam("titulo")), m.getParam("nome")) ||//Eleitor n se inscrevei
+                    eleitorVotou(Long.parseLong(m.getParam("titulo"))) || //Eleitor ja votou
+                    !authAddr(msg.getSrc(), Long.parseLong(m.getParam("titulo")))/*Endereco invalido */){
                     resposta.setStatus(Status.PARAMERROR);
                 } else if (!candidatoExists(Integer.parseInt(m.getParam("cand")))){
                     resposta.setStatus(Status.ERROR);
                 } else {
                     for(int i = 0; i < eleitores.size(); i++){
                         if(eleitores.get(i).getTitulo() == Long.parseLong(m.getParam("titulo"))){
-                            eleitores.get(i).votou();
+                            eleitores.get(i).vota();
+                            votosQtd++;
                         }
                     }
                 }
@@ -242,7 +293,7 @@ public class Peer extends ReceiverAdapter {
                 c.setTitulo(Long.parseLong(m.getParam("titulo")));
                 c.setEndereco(msg.getSrc());
                 
-                if(!eleitorInscrito(c.getTitulo(), c.getNome())){
+                if(!eleitorInscrito(c.getTitulo(), c.getNome()) || !authAddr(msg.getSrc(), Long.parseLong(m.getParam("titulo")))){
                     resposta.setStatus(Status.PARAMERROR);
                 } else if (eleicaoIniciada.equals(EleicaoStatus.DUR) || numeroCandRepetido(c.getNumero())){
                     resposta.setStatus(Status.ERROR);
@@ -268,6 +319,35 @@ public class Peer extends ReceiverAdapter {
                         if(eleitores.get(i).getTitulo() == Long.parseLong(m.getParam("titulo"))){
                             eleitores.get(i).inscrever();
                             eleitores.get(i).setEndereco(msg.getSrc());
+                            if(eleicaoIniciada == EleicaoStatus.DUR || eleicaoIniciada == EleicaoStatus.POS){
+                                resposta = new Mensagem("START");
+                                try {
+                                    channel.send(msg.getSrc(), resposta);
+                                } catch (Exception e) {
+                                    //TODO: handle exception
+                                    e.printStackTrace();
+                                }
+                            }
+                            if(eleicaoIniciada == EleicaoStatus.POS){
+                                resposta = new Mensagem("END");
+                                try {
+                                    channel.send(msg.getSrc(), resposta);
+                                } catch (Exception e) {
+                                    //TODO: handle exception
+                                    e.printStackTrace();
+                                }
+                            }
+                            if(eleicaoIniciada == EleicaoStatus.ERR){
+                                resposta = new Mensagem("ERR");
+                                try {
+                                    channel.send(msg.getSrc(), resposta);
+                                } catch (Exception e) {
+                                    //TODO: handle exception
+                                    e.printStackTrace();
+                                }
+                            }
+                            resposta = new Mensagem("AUTHRESP");
+                            resposta.setStatus(Status.OK);
                             resposta.setParam("titulo", "" + eleitores.get(i).getTitulo());
                             resposta.setParam("nome", eleitores.get(i).getNome());
                             state.add(eleitores.get(i));
@@ -309,11 +389,18 @@ public class Peer extends ReceiverAdapter {
             default:
                 screen = "\nChegou mensagem sem status padrao definido: " + m.toString();
         }
-        System.err.println(screen);
+        System.err.println("\n\n\n\n\n" + isErr() + screen + "\n> ");
 
         synchronized(state) {
             
         }
+    }
+
+    private String isErr(){
+        if(eleicaoIniciada == EleicaoStatus.ERR){
+            return "\n\n\nERRO NA CONTAGEM DOS VOTOS!!!!!!!";
+        }
+        return "";
     }
 
     /*recebe o state de outro processo */
@@ -360,7 +447,7 @@ public class Peer extends ReceiverAdapter {
                         screen += 
                             "\n1 - Votar" +
                             "\n2 - Mostrar usuarios" +
-                            "\n3 - Mostrar candidatos" +
+                            "\n3 - Mostrar candidatos/apurar votos se depois da eleicao" +
                             "\n4 - Identificar-se" +
                             "\n5 - Candidatar-se" + 
                             "\n6 - Cadastrar usuarios" +
@@ -394,6 +481,7 @@ public class Peer extends ReceiverAdapter {
                         System.err.print("> "); System.out.flush();
                         line = in.readLine().toLowerCase();
                         m.setParam("cand", line);
+                        votou = Integer.parseInt(line);
 
                         msg = new Message(viewAtual.getCoord(), m);
                         channel.send(msg);
@@ -401,13 +489,34 @@ public class Peer extends ReceiverAdapter {
                     break;
                     case "2":
                         screen = mostraUsuarios();
+                        if(isCoordenador()){
+                            screen = mostraUsuarios();
+                        } else {
+                            screen = "";
+                            m = new Mensagem("SHOWUSERS");
+                            msg = new Message(viewAtual.getCoord(), m);
+                            channel.send(msg); 
+                        }
                     break;
                     case "3":
-                        screen = "";
-                        m = new Mensagem("SHOWCAND");
-                        msg = new Message(viewAtual.getCoord(), m);
-                        channel.send(msg); 
-                        screen = "";
+                        if(isCoordenador()){
+                            screen = printCandidatos();
+                        } else {
+                            if(eleicaoIniciada.equals(EleicaoStatus.POS)){
+                                screen = "";
+                                apur = new HashMap<>();
+                                if(votou != 0){
+                                    apur.put(votou, 1);
+                                }
+                                m = new Mensagem("APUR");
+                                msg = new Message(null, m);
+                                channel.send(msg); 
+                            }
+                            screen = "";
+                            m = new Mensagem("SHOWCAND");
+                            msg = new Message(viewAtual.getCoord(), m);
+                            channel.send(msg); 
+                        }
                     break;
                     case "4":
                         if(isCoordenador()){
@@ -550,6 +659,14 @@ public class Peer extends ReceiverAdapter {
                             break;
                         }
                         screen = "";
+                        if(state.getCandidatos().size() <= 1){
+                            screen = "NAO E POSSIVEL INICIAR A ELEICAO COM UM OU NENHUM CANDIDATO";
+                            break;
+                        }
+                        if(eleicaoIniciada != EleicaoStatus.PRE){
+                            screen = "SO E POSSIVEL INICIAR A ELEICAO ANTES DELA";
+                            break;
+                        }
                         m = new Mensagem("START");
                         msg = new Message(null, m);
                         channel.send(msg); 
@@ -558,6 +675,10 @@ public class Peer extends ReceiverAdapter {
                     break;
                     case "9":
                         if(!isCoordenador()){
+                            break;
+                        }
+                        if(eleicaoIniciada != EleicaoStatus.DUR){
+                            screen = "SO E POSSIVEL TERMINAR A ELEICAO DURANTE ELA";
                             break;
                         }
                         screen = "";
@@ -577,7 +698,7 @@ public class Peer extends ReceiverAdapter {
                 if(line.equals("exit") || line.equals("quit")) {
                     break;
                 }
-                System.err.println(screen + printVotos());
+                System.err.println("\n\n\n\n\n" + isErr() + screen + "\n> ");
             }
             catch(Exception e) {
             }
@@ -688,6 +809,29 @@ public class Peer extends ReceiverAdapter {
         return false;
     }
 
+    private void addApur(String voto){
+        if(voto.equals("0")){
+            return;
+        }
+        Integer v = Integer.parseInt(voto);
+        if(apur.containsKey(v)){
+            apur.replace(v, apur.get(v) + 1);
+        } else {
+            apur.put(v, 1);
+        }
+        System.err.println(printApur());
+    }
+
+    private String printApur(){
+        String ret = "\nVOTOS CONFIRMADOS: \n";
+        for (Integer name: apur.keySet()) {
+            String key = name.toString();
+            String value = apur.get(name).toString();
+            ret += "\n" + key + " " + value;
+        }
+        return ret;
+    }
+
     private boolean candidatoExists(Integer nr){
         for(int i = 0; i < candidatos.size(); i++){
             if(candidatos.get(i).getNumero() == nr){
@@ -699,15 +843,62 @@ public class Peer extends ReceiverAdapter {
     }
 
     private String mostraUsuarios(){
-        String users = "";
+        String users = "NOME\tENDERECO";
         for(Eleitor e : state.getEleitores()){
-            users += "\n" + e.getNome();
+            users += "\n" + e.getNome() + "\t" + e.getEndereco().toString();
         }
-        return users;
+        return users + "\n";
     }
 
-    private void mostraMenu(String screen){
-        System.err.println(screen);
+    private void apurFromString(String ap){
+        String [] apS = ap.split(",");
+        apur = new HashMap<>();
+        for(int i = 0; i < apS.length; i+=2){
+            apur.put(Integer.parseInt(apS[i]), Integer.parseInt(apS[i+1]));
+        }
+    }
+
+    private String apurToString(){
+        String ret = "";
+        for (Integer name: apur.keySet()) {
+            String key = name.toString();
+            String value = apur.get(name).toString();
+            ret += key + "," + value + ",";
+        }
+        return ret;
+    }
+
+    private boolean confirmApur(){
+        for (Integer name: apur.keySet()) {
+            if(sumApu() > votosQtd){
+                return false;
+            } else if(getVotosFromNum(name) != apur.get(name) && sumApu() == votosQtd){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Integer sumApu(){
+        Integer ret = 0;
+        for (Integer name: apur.keySet()) {
+            ret += apur.get(name);
+        }
+        return ret;
+    }
+
+    private Integer getVotosFromNum(Integer num){
+        for(Candidato c : state.getCandidatos()){
+            if(c.getNumero() == num){
+                return c.getVotos();
+            }
+        }
+        return 0;
+    }
+
+    private boolean authAddr(Address src, Long t){
+        Eleitor e = getByNr(t);
+        return  src.toString().equals(e.getEndereco().toString());
     }
 
     public static void main(String[] args) throws Exception {

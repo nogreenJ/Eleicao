@@ -1,0 +1,28 @@
+1 Inscrever candidatos
+Antes de as eleições começarem, o peer coordenador pode receber inscrições de candidatos dos demais peers. Essa inscrição deve conter qual o candidato que está se inscrevendo e qual o seu número;
+devem ser restrito para impedir candidaturas com nomes ou números iguais;
+
+2 Iniciar e finalizar eleições
+O peer coordenador deve enviar uma mensagem iniciando e finalizando a eleição. Quando iniciada, não pode mais receber inscrições de candidatos. A votação só poderá ocorrer entre o início e o final das eleições.
+A finalização da eleição deve enviar o resultado desta para todos os peers;
+
+3 Cadastrar eleitores:
+somente o coordenador pode cadastrar eleitores
+O cadastro deve ser feito enviando o nome e o número do título do eleitor. Um por vez ou em blocos de vários eleitores;
+
+4 Votar
+A votação deve ser permitida em todos os peers autenticados (opcional).
+O “eleitor” deve informar seu título eleitoral cadastrado pelo coordenador
+feito isso, ele deve receber como resposta a lista de candidatos e seus respectivos números;
+o voto deve ser informando o número do candidato;
+cada eleitor pode votar somente uma vez;
+os votos devem ser armazenados localmente no peer o qual o eleitor votou e no coordenador do sistema.
+
+5 Verificação da apuração
+Aproveitando que a aplicação tem a possibilidade de ser peer-to-peer, deve ser implementado um sistema de apuração distribuído para confirmar os resultados das eleições.
+O sistema deve permitir que qualquer peer solicite essa verificação. Ao solicitar, todos os peers devem enviar os votos realizados localmente para que o peer solicitante possa contar e conferir com o resultado oficial.
+Deve ser exibida informação sobre a validade da votação e, em caso de possível fraude, todos os peers devem ser alertados.
+(funcionalidade EXTRA +1): usar o sistema de estado global do JGroups para armazenar localmente todos os votos. Assim é possível que cada peer possa confirmar o resultado das eleições comparando com os resultados armazenados nos demais. Se houver divergências, pode-se resolver.
+
+6 Autenticação dos peers (EXTRA +1)
+Desenvolver uma forma de autenticar cada peer que entrar no canal. Somente os peers autenticados poderão realizar qualquer operação. Esta autenticação também deve permitir que um peer autenticado qualquer verifique a validade de outro peer.
