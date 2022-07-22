@@ -53,10 +53,7 @@ public class Eleitor implements Serializable{
         return votou;
     }
 
-    public boolean inscrever(Long titulo){
-        if(this.titulo == titulo){
-            this.inscrito = inscrito;
-        }
-        return this.inscrito;
+    public void inscrever(){
+        inscrito = true;
     }
 }

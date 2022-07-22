@@ -9,6 +9,7 @@ public class Candidato implements Serializable {
 
     private String nome;
     private Integer numero;
+    private Long titulo;
     private Integer votos = 0;
     transient boolean confirmado = false;
     transient Address endereco;
@@ -17,9 +18,10 @@ public class Candidato implements Serializable {
 
     }
 
-    public Candidato(Integer numero, String nome){
+    public Candidato(Integer numero, String nome, Long titulo){
         this.numero = numero;
         this.nome = nome;
+        this.titulo = titulo;
     }
 
     public String getNome(){
@@ -36,6 +38,14 @@ public class Candidato implements Serializable {
 
     public void setNumero(Integer numero){
         this.numero = numero;
+    }
+
+    public Long getTitulo(){
+        return titulo;
+    }
+
+    public void setTitulo(Long titulo){
+        this.titulo = titulo;
     }
 
     public Integer getVotos(){
@@ -56,6 +66,10 @@ public class Candidato implements Serializable {
 
     public void confirma(){
         this.confirmado = true;
+    }
+
+    public boolean confirmado(){
+        return confirmado;
     }
 
     public void vota(){
