@@ -192,18 +192,26 @@ public class Peer extends ReceiverAdapter {
                 progress();
             break;
             case "END":
-                try{
-                    progress();
-                    byte[] arr = m.getParam("votos").getBytes();
-                    ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(arr));
-                    state.setCandidatos((List<Candidato>) ois.readObject());
-                    screen = printCandidatos();
-                } catch (Exception e){
-                    e.printStackTrace();
-                }
+                progress();
+                state.loadCandidatosCom(m.getParam("votos"));
+                screen = "\nELEICAO TERMINADA!\n" + printVotos();
+            break;
+            case "SHOWCANDRESP":
+                state.loadCandidatos(m.getParam("votos"));
+                screen += printCandidatos();
             break;
 
             //COORDENADOR
+            case "SHOWCAND":
+                resposta = new Mensagem("SHOWCANDRESP");
+                resposta.setStatus(Status.OK);
+                resposta.setParam("votos", state.getCandidatosString(false));
+                try {
+                    channel.send(msg.getSrc(), resposta);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            break;
             case "VOTO":
                 resposta = new Mensagem("VOTOCONF");
                 resposta.setStatus(Status.OK);
@@ -395,7 +403,11 @@ public class Peer extends ReceiverAdapter {
                         screen = mostraUsuarios();
                     break;
                     case "3":
-                        screen = printCandidatos();
+                        screen = "";
+                        m = new Mensagem("SHOWCAND");
+                        msg = new Message(viewAtual.getCoord(), m);
+                        channel.send(msg); 
+                        screen = "";
                     break;
                     case "4":
                         if(isCoordenador()){
@@ -550,7 +562,7 @@ public class Peer extends ReceiverAdapter {
                         }
                         screen = "";
                         m = new Mensagem("END");
-                        m.setParam("votos", state.getCandidatosStringVotos());
+                        m.setParam("votos", state.getCandidatosString(true));
                         msg = new Message(null, m);
                         channel.send(msg); 
                         eleicaoIniciada = EleicaoStatus.POS;
