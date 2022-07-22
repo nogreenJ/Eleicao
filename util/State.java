@@ -1,5 +1,9 @@
 package util;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +23,25 @@ public class State implements Serializable{
 
     public List<Candidato> getCandidatos(){
         return this.candidatos;
+    }
+
+    public String getCandidatosString(){
+        List<Candidato> cand = new ArrayList<>();
+        for(Candidato c : candidatos){
+            c.setVotos(0);
+            cand.add(c);
+        }
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ObjectOutputStream ois = new ObjectOutputStream(baos);
+            ois.writeObject(cand);
+            byte[] bytes = baos.toByteArray();
+            return bytes.toString();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return "";
     }
 
     public void setCandidatos(List<Candidato> candidatos){

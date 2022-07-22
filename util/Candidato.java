@@ -9,7 +9,7 @@ public class Candidato implements Serializable {
 
     private String nome;
     private Integer numero;
-    private Long titulo;
+    transient private Long titulo;
     private Integer votos = 0;
     transient boolean confirmado = false;
     transient Address endereco;

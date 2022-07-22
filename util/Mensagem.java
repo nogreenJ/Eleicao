@@ -53,6 +53,9 @@ public class Mensagem implements Serializable {
     }
 
     public String getParam(String chave) {
+        if(!params.containsKey(chave)){
+            return "";
+        }
         return params.get(chave);
     }
 

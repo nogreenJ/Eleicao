@@ -7,7 +7,7 @@ import org.jgroups.Address;
 public class Eleitor implements Serializable{
     
     private long titulo;
-    private String nome;
+    private String nome = "";
     transient private boolean inscrito = false;
     transient private boolean votou = false;
     transient private Address endereco;
@@ -51,6 +51,10 @@ public class Eleitor implements Serializable{
 
     public boolean votou(){
         return votou;
+    }
+
+    public void vota(){
+        votou = true;
     }
 
     public void inscrever(){
