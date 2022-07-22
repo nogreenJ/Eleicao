@@ -44,6 +44,20 @@ public class State implements Serializable{
         return "";
     }
 
+    public String getCandidatosStringVotos(){
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ObjectOutputStream ois = new ObjectOutputStream(baos);
+            ois.writeObject(candidatos);
+            byte[] bytes = baos.toByteArray();
+            return bytes.toString();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return "";
+    }
+
     public void setCandidatos(List<Candidato> candidatos){
         this.candidatos = candidatos;
     }

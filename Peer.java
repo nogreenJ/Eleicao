@@ -188,38 +188,18 @@ public class Peer extends ReceiverAdapter {
                     e.printStackTrace();
                 }
             break;
-            case "START": case "END":
+            case "START": 
                 progress();
             break;
-            case "VOTOPEDRESP":
-                switch(m.getStatus()){
-                    case PARAMERROR:
-                        screen = "\nLOGIN INVALIDO";
-                    break;
-                    case OK:
-                        try {
-                            byte[] arr = m.getParam("votos").getBytes();
-                            ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(arr));
-                            state.setCandidatos((List<Candidato>) ois.readObject());
-
-                            BufferedReader in=new BufferedReader(new InputStreamReader(System.in));
-                            resposta = new Mensagem("VOTO");
-                            System.err.print(printCandidatos() + "\n\nINSIRA O CANDIDATO PARA QUEM QUER VOTAR: ");
-                            System.err.print("\n> "); System.out.flush();
-                            String line = in.readLine().toLowerCase();
-                            resposta.setParam("cand", line);
-                            resposta.setParam("titulo", line);
-                            votou = Integer.parseInt(line);
-    
-                            msg = new Message(viewAtual.getCoord(), resposta);
-                            channel.send(msg);
-                            screen = "";
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    break;
-                    default:
-                    break;
+            case "END":
+                try{
+                    progress();
+                    byte[] arr = m.getParam("votos").getBytes();
+                    ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(arr));
+                    state.setCandidatos((List<Candidato>) ois.readObject());
+                    screen = printCandidatos();
+                } catch (Exception e){
+                    e.printStackTrace();
                 }
             break;
 
@@ -570,6 +550,7 @@ public class Peer extends ReceiverAdapter {
                         }
                         screen = "";
                         m = new Mensagem("END");
+                        m.setParam("votos", state.getCandidatosStringVotos());
                         msg = new Message(null, m);
                         channel.send(msg); 
                         eleicaoIniciada = EleicaoStatus.POS;
@@ -584,7 +565,7 @@ public class Peer extends ReceiverAdapter {
                 if(line.equals("exit") || line.equals("quit")) {
                     break;
                 }
-                System.err.println(screen);
+                System.err.println(screen + printVotos());
             }
             catch(Exception e) {
             }
