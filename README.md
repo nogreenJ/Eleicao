@@ -50,7 +50,7 @@ b. O “eleitor” deve informar seu título eleitoral cadastrado pelo coordenad
 a. Aproveitando que a aplicação tem a possibilidade de ser peer-to-peer, deve ser implementado um sistema de apuração distribuído para confirmar os resultados das eleições.
 b. O sistema deve permitir que qualquer peer solicite essa verificação. Ao solicitar, todos os peers devem enviar os votos realizados localmente para que o peer solicitante possa contar e conferir com o resultado oficial.
   - Deve ser exibida informação sobre a validade da votação e, em caso de possível fraude, todos os peers devem ser alertados.
-c. (funcionalidade EXTRA +1): usar o sistema de estado global do JGroups para armazenar localmente todos os votos. Assim é possível que cada peer possa confirmar o resultado das eleições comparando com os resultados armazenados nos demais. Se houver divergências, pode-se resolver.
+c. Usar o sistema de estado global do JGroups para armazenar localmente todos os votos. Assim é possível que cada peer possa confirmar o resultado das eleições comparando com os resultados armazenados nos demais. Se houver divergências, pode-se resolver.
 
 ### 6. Autenticação dos peers (EXTRA +1)
 a. Desenvolver uma forma de autenticar cada peer que entrar no canal. Somente os peers autenticados poderão realizar qualquer operação. Esta autenticação também deve permitir que um peer autenticado qualquer verifique a validade de outro peer.
