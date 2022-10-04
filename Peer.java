@@ -25,21 +25,29 @@ import java.util.HashMap;
 public class Peer extends ReceiverAdapter {
 
     //Todos possuem
-    JChannel channel;
-    Eleitor eleitor = new Eleitor();
-    View viewAtual;
-    EleicaoStatus eleicaoIniciada = EleicaoStatus.PRE;
-    String screen = "";
-    Integer votou = 0; //utilizado na apuracao de erros pelo coord
-    State state = new State();
+    private JChannel channel;
+    private View viewAtual;
+    private Eleitor eleitor = new Eleitor();
+    private EleicaoStatus eleicaoIniciada = EleicaoStatus.PRE;
+    private String screen = "";
+    private Integer votou = 0; //utilizado na apuracao de erros pelo coord
+    private State state = new State();
 
     //Utilizado para confiracao pos eleicao
-    Map<Integer, Integer> apur = new HashMap<>();
+    private Map<Integer, Integer> apur = new HashMap<>();
 
     //apenas coordenador possui
-    Integer votosQtd = 0;
-    List<Eleitor> eleitores = new ArrayList<>();
-    List<Candidato> candidatos = new ArrayList<>();
+    private Integer votosQtd = 0;
+    private List<Eleitor> eleitores = new ArrayList<>();
+    private List<Candidato> candidatos = new ArrayList<>();
+
+    public void setEleitores(List<Eleitor> eleitores){
+        this.eleitores = eleitores;
+    }
+
+    public List<Eleitor> getEleitores(){
+        return eleitores;
+    }
 
     /*Toda a vez que um peer entra ou sai do grupo e enviado um objeto View, que contem informacões sobre todos os peers */
     public void viewAccepted(View newView) {
@@ -714,7 +722,7 @@ public class Peer extends ReceiverAdapter {
         return false;
     }
 
-    private boolean addEleitor(Eleitor eleitor){
+    public boolean addEleitor(Eleitor eleitor){
         for(Eleitor e : eleitores){
             if(e.getTitulo() == eleitor.getTitulo() || e.getNome().equals(eleitor.getNome())){
                 return false;
