@@ -1,11 +1,3 @@
-/*
-
-Codigo de acordo com o tutorial abaixo. Favor ler para compreender melhor o funcionamento da aplicacao.
-
-http://www.jgroups.org/tutorial4/index.html
-
-*/
-
 import org.jgroups.Address;
 import org.jgroups.JChannel;
 import org.jgroups.Message;
@@ -16,10 +8,10 @@ import org.jgroups.util.Util;
 import util.*;
 
 import java.io.*;
-import java.util.List;
-import java.util.Map;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /*Como o SimpleChat e um ReceiverAdapter, ele e capaz de alem de enviar mensagens,tambem receber mensagens de forma assincrona */
 public class Peer extends ReceiverAdapter {
@@ -47,6 +39,30 @@ public class Peer extends ReceiverAdapter {
 
     public List<Eleitor> getEleitores(){
         return eleitores;
+    }
+
+    public void setCandidatos(List<Candidato> candidatos){
+        this.candidatos = candidatos;
+    }
+
+    public List<Candidato> getCandidatos(){
+        return candidatos;
+    }
+
+    public void setStatus(EleicaoStatus e){
+        this.eleicaoIniciada = e;
+    }
+
+    public EleicaoStatus getStatus(){
+        return eleicaoIniciada;
+    }
+    
+    public int getVotosQtd(){
+        return votosQtd;
+    }
+
+    public void setVotosQtd(int votosQtd){
+        this.votosQtd = votosQtd;
     }
 
     /*Toda a vez que um peer entra ou sai do grupo e enviado um objeto View, que contem informacões sobre todos os peers */
@@ -271,21 +287,7 @@ public class Peer extends ReceiverAdapter {
             break;
             case "VOTO":
                 resposta = new Mensagem("VOTOCONF");
-                resposta.setStatus(Status.OK);
-                if(!eleitorInscrito(Long.parseLong(m.getParam("titulo")), m.getParam("nome")) ||//Eleitor n se inscrevei
-                    eleitorVotou(Long.parseLong(m.getParam("titulo"))) || //Eleitor ja votou
-                    !authAddr(msg.getSrc(), Long.parseLong(m.getParam("titulo")))/*Endereco invalido */){
-                    resposta.setStatus(Status.PARAMERROR);
-                } else if (!candidatoExists(Integer.parseInt(m.getParam("cand")))){
-                    resposta.setStatus(Status.ERROR);
-                } else {
-                    for(int i = 0; i < eleitores.size(); i++){
-                        if(eleitores.get(i).getTitulo() == Long.parseLong(m.getParam("titulo"))){
-                            eleitores.get(i).vota();
-                            votosQtd++;
-                        }
-                    }
-                }
+                resposta.setStatus(realizarVoto(m, msg));
                 try {
                     channel.send(msg.getSrc(), resposta);
                 } catch (Exception e) {
@@ -301,13 +303,7 @@ public class Peer extends ReceiverAdapter {
                 c.setTitulo(Long.parseLong(m.getParam("titulo")));
                 c.setEndereco(msg.getSrc());
                 
-                if(!eleitorInscrito(c.getTitulo(), c.getNome()) || !authAddr(msg.getSrc(), Long.parseLong(m.getParam("titulo")))){
-                    resposta.setStatus(Status.PARAMERROR);
-                } else if (eleicaoIniciada.equals(EleicaoStatus.DUR) || numeroCandRepetido(c.getNumero())){
-                    resposta.setStatus(Status.ERROR);
-                } else {
-                    candidatos.add(c);
-                }
+                resposta.setStatus(addCandidato(c, msg.getSrc(), m.getParam("titulo")));
                 try {
                     channel.send(msg.getSrc(), resposta);
                 } catch (Exception e) {
@@ -732,6 +728,36 @@ public class Peer extends ReceiverAdapter {
         return true;
     }
 
+    public Status addCandidato(Candidato c, Address a, String t){
+        boolean hold = eleitorInscrito(c.getTitulo(), c.getNome());
+        if(!eleitorInscrito(c.getTitulo(), c.getNome()) || !authAddr(a, t)){
+            return Status.PARAMERROR;
+        } else if (eleicaoIniciada.equals(EleicaoStatus.DUR) || numeroCandRepetido(c.getNumero())){
+            return Status.ERROR;
+        }
+        candidatos.add(c);
+        return Status.OK;
+    }
+
+    public Status realizarVoto(Mensagem m, Message msg){
+        if(!eleitorInscrito(Long.parseLong(m.getParam("titulo")), m.getParam("nome")) ||//Eleitor n se inscrevei
+            eleitorVotou(Long.parseLong(m.getParam("titulo"))) || //Eleitor ja votou
+            !authAddr(msg == null? null : msg.getSrc(), m.getParam("titulo"))/*Endereco invalido */){
+            return Status.PARAMERROR;
+        } else if (!candidatoExists(Integer.parseInt(m.getParam("cand"))) || !eleicaoIniciada.equals(EleicaoStatus.DUR)){
+            return Status.ERROR;
+        } else {
+            for(int i = 0; i < eleitores.size(); i++){
+                if(eleitores.get(i).getTitulo() == Long.parseLong(m.getParam("titulo"))){
+                    eleitores.get(i).vota();
+                    votosQtd++;
+                    return Status.OK;
+                }
+            }
+            return Status.ERROR;
+        }
+    }
+
     private String printCandidatosAgu(){
         String ret = "\nNOME\tNUMERO\tCONF\n";
 
@@ -843,7 +869,9 @@ public class Peer extends ReceiverAdapter {
     private boolean candidatoExists(Integer nr){
         for(int i = 0; i < candidatos.size(); i++){
             if(candidatos.get(i).getNumero() == nr){
-                state.getCandidatos().get(i).vota();
+                if(state.getCandidatos().size() > 0){
+                    state.getCandidatos().get(i).vota();
+                }
                 return true;
             }
         }
@@ -904,9 +932,12 @@ public class Peer extends ReceiverAdapter {
         return 0;
     }
 
-    private boolean authAddr(Address src, Long t){
-        Eleitor e = getByNr(t);
-        return  src.toString().equals(e.getEndereco().toString());
+    private boolean authAddr(Address src, String t){
+        if(src == null || t == null){
+            return true;
+        }
+        Eleitor e = getByNr(Long.parseLong(t));
+        return src.toString().equals(e.getEndereco().toString());
     }
 
     public static void main(String[] args) throws Exception {
